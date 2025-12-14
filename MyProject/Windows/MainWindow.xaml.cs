@@ -1,0 +1,177 @@
+﻿using WpfApp2.HelperClasses;
+using WpfApp2.ModelClasses;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Documents;
+using System.Windows.Forms;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
+using System.Windows.Shapes;
+
+namespace WpfApp2
+{
+    public partial class MainWindow : Window
+    {
+        private ModelEF model;
+
+        // Список всех пользователей
+        private List<Users> users;
+
+        // Список всех автомобилей
+        private List<Auto> autos;
+
+        // Конструктор главного окна
+        public MainWindow()
+        {
+            // Инициализирует компоненты окна
+            InitializeComponent();
+
+            // Создает новый экземпляр контекста базы данных
+            model = new ModelEF();
+
+            // Инициализирует списки пользователей и автомобилей пустыми списками
+            users = new List<Users>();
+            autos = new List<Auto>();
+        }
+
+        // Метод вызывается при загрузке окна
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Загружает данные в combobox
+            ComboLoadData();
+        }
+
+        // Метод для заполнения combobox данными о пользователях и автомобилях
+        private void ComboLoadData()
+        {
+            // Очищает элементы combobox с пользователями
+            comboBoxUsers.Items.Clear();
+
+            // Заполняет список пользователей данными из базы данных
+            users = model.Users.ToList();
+
+            // Добавляет данные о каждом пользователе в combobox
+            foreach (var item in users)
+            {
+                comboBoxUsers.Items.Add($"{item.FullName} {item.PSeria} {item.PNumber}");
+            }
+
+            // Устанавливает первый элемент как выбранный
+            comboBoxUsers.SelectedIndex = 0;
+
+            // Получает автомобили текущего выбранного пользователя
+            autos = users[comboBoxUsers.SelectedIndex].Auto.ToList();
+
+            // Очищает элементы combobox с автомобилями
+            comboBoxAutos.Items.Clear();
+
+            // Добавляет данные об автомобилях в combobox
+            foreach (var item in autos)
+            {
+                comboBoxAutos.Items.Add($"{item.Model} {item.YearOfRelease.Value.Year} {item.VIN}");
+            }
+
+            // Устанавливает первый автомобиль как выбранный
+            comboBoxAutos.SelectedIndex = 0;
+        }
+
+        // Метод вызывается при смене выбранного элемента в combobox с пользователями
+        private void comboBoxUsers_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // Получает автомобили нового выбранного пользователя
+            autos = users[comboBoxUsers.SelectedIndex].Auto.ToList();
+
+            // Очищает элементы combobox с автомобилями
+            comboBoxAutos.Items.Clear();
+
+            // Добавляет данные об автомобилях в combobox
+            foreach (var item in autos)
+            {
+                comboBoxAutos.Items.Add($"{item.Model} {item.YearOfRelease.Value.Year} {item.VIN}");
+            }
+
+            // Устанавливает первый автомобиль как выбранный
+            comboBoxAutos.SelectedIndex = 0;
+        }
+
+        // Метод обработки нажатия кнопки 'Сохранить документ'
+        private void SaveDocument_Click(object sender, RoutedEventArgs e)
+        {
+            // Создаем диалоговое окно для выбора директории
+            FolderBrowserDialog fbd = new FolderBrowserDialog();
+
+            // Задаем описание для окна выбора директории
+            fbd.Description = "Выберите место сохранения";
+
+            // Проверяем результат открытия диалогового окна
+            if (System.Windows.Forms.DialogResult.OK == fbd.ShowDialog())
+            {
+                // Получаем активного пользователя
+                Users activeUser = users[comboBoxUsers.SelectedIndex];
+
+                // Получаем активный автомобиль
+                Auto activeAuto = activeUser.Auto.ToList()[comboBoxAutos.SelectedIndex];
+
+                // Создаем документ и сохраняем его в указанную директорию
+                CreateDocument(
+                    $@"{fbd.SelectedPath}\Купля-Продажа-Автомобиля-{activeUser.FullName}.docx",
+                    activeUser,
+                    activeAuto);
+
+                // Выводим сообщение о сохранении файла
+                System.Windows.MessageBox.Show("Файл сохранён");
+            }
+        }
+
+        // Метод создания документа с подстановкой данных пользователя и автомобиля
+        private void CreateDocument(string directorypath, Users users, Auto auto)
+        {
+            // Получаем текущую дату
+            var today = DateTime.Now.ToString("dd.MM.yyyy");
+
+            // Создаем объект для работы с документом Word
+            WordHelper word = new WordHelper("ContractSale.docx");
+
+            // Создаем словарь для замены ключевых слов в документе
+            var items = new Dictionary<string, string>
+            {
+                // Замена ключевого слова <Today> на текущую дату
+                {"<Today>", today },
+                
+                // Данные пользователя
+                {"<FullName>", users.FullName }, // ФИО
+                {"<DateOfBirth>", users.DateOfBirth.Value.ToString("dd.MM.yyyy") }, // Дата рождения
+                {"<Adress>", users.Adress },
+                {"<Peerla>", users.PSeria.ToString() }, // Серия паспорта
+                {"<Plumber>", users.PNumber.ToString() }, // Номер паспорта
+                {"<PYldan>", users.PVidan }, // Кем выдан паспорт
+                
+                // Данные автомобиля
+                {"<NodeUV>", auto.Model }, // Модель автомобиля
+                {"<CategoryV>", auto.Category }, // Категория автомобиля
+                {"<TypeV>", auto.TypeV }, // Тип автомобиля
+                {"<VIN>", auto.VIN }, // VIN номер
+                {"<RegistrationMark>", auto.RegistrationMark }, // Регистрационный знак
+                {"<YearV>", auto.YearOfRelease.Value.Year.ToString() }, // Год выпуска
+                {"<EngineV>", auto.EngineNumber }, // Номер двигателя
+                {"<ChassisV>", auto.Chassis }, // Шасси
+                {"<BodyworkV>", auto.Bodywork }, // Кузов
+                {"<ColorV>", auto.Color }, // Цвет
+                {"<SerialPV>", auto.SeriaPasport }, // Серия ПТС
+                {"<NumberPV>", auto.NumbePasport }, // Номер ПТС
+                {"<VldanPV>", auto.VidanPasport } // Кем выдан ПТС
+            };
+
+            // Обрабатывает документ, подставляя значения из словаря вместо ключевых слов
+            word.Process(items, directorypath);
+        }
+    }
+}
